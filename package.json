@@ -8,9 +8,10 @@
     "node": "^22.13.0 || >=24"
   },
   "scripts": {
-    "dev": "vite --host 127.0.0.1",
+    "dev": "vite --host 127.0.0.1 --port 5173 --strictPort",
     "build": "vite build",
-    "preview": "vite preview --host 127.0.0.1"
+    "preview": "vite preview --host 127.0.0.1 --port 4173 --strictPort",
+    "start": "npm run build && npm run preview"
   },
   "dependencies": {
     "epubjs": "^0.3.93",
