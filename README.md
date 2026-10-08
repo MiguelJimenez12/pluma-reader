@@ -8,9 +8,11 @@
 | --- | --- |
 | ![Biblioteca con dos libros de demostración](docs/screenshots/library.png) | ![Lector EPUB en tema sepia](docs/screenshots/epub.png) |
 
-| Lector PDF | Diseño móvil |
+| Lector PDF | Biblioteca móvil |
 | --- | --- |
 | ![Visor PDF con resultados de búsqueda](docs/screenshots/pdf.png) | ![Biblioteca en un teléfono](docs/screenshots/mobile.png) |
+
+![Lectura EPUB en una pantalla móvil](docs/screenshots/mobile-reader.png)
 
 Las capturas usan libros de demostración; no se incluyen archivos personales ni libros en el repositorio.
 
@@ -22,7 +24,7 @@ Las capturas usan libros de demostración; no se incluyen archivos personales ni
 - Buscar texto dentro de cada libro y guardar marcadores.
 - Ajustar fuente, tamaño, interlineado, márgenes y ancho del texto en EPUB.
 - Elegir tema claro, sepia u oscuro; leer a pantalla completa.
-- Eliminar libros y sus datos locales. Interfaz adaptable a computadora, tableta y móvil.
+- Eliminar libros y sus datos locales. Interfaz adaptable a computadora, tableta y móvil, con controles de lectura accesibles en pantallas pequeñas.
 
 ## Tecnologías
 
@@ -36,15 +38,25 @@ Necesitas **Node.js 22.13 o posterior de la línea 22, o Node.js 24 o posterior*
 git clone https://github.com/MiguelJimenez12/pluma-reader.git
 cd pluma-reader
 npm ci
+npm start
+```
+
+`npm start` compila la aplicación y abre la versión de producción en `http://127.0.0.1:4173/`. Pulsa **Añadir libro** para importar tus archivos. La terminal debe permanecer abierta mientras usas Pluma. Después de cerrar la terminal o reiniciar la computadora, entra de nuevo en la carpeta del proyecto y ejecuta `npm start`; solo necesitas repetir `npm ci` si cambian las dependencias o haces una instalación nueva. Si el puerto está ocupado, cierra la instancia anterior de Pluma y vuelve a ejecutar el comando.
+
+Para trabajar en el código con recarga automática:
+
+```bash
 npm run dev
 ```
 
-Abre la dirección local que muestre Vite (normalmente `http://127.0.0.1:5173/`) y pulsa **Añadir libro**. Para generar y revisar la versión de producción:
+El servidor de desarrollo abre en `http://127.0.0.1:5173/`. También puedes compilar y revisar la versión de producción por separado:
 
 ```bash
 npm run build
 npm run preview
 ```
+
+`npm run preview` requiere haber ejecutado `npm run build` antes. Las advertencias de `npm ci` sobre `@types/localforage` y `allow-scripts` proceden de dependencias; no impiden instalar, compilar ni ejecutar Pluma. La instalación verificada no mostró vulnerabilidades en `npm audit`.
 
 ## Estructura
 
@@ -61,4 +73,4 @@ docs/screenshots/   Capturas reales de la aplicación
 
 ## Datos y límites actuales
 
-La biblioteca pertenece al navegador y dispositivo donde se importó. Borrar los datos del sitio también borra los libros y el progreso. La búsqueda de PDF requiere texto seleccionable: un PDF escaneado necesitaría reconocimiento de texto. Una mejora futura sería sincronizar o exportar la biblioteca entre dispositivos.
+La biblioteca pertenece al navegador y dispositivo donde se importó. El servidor de desarrollo (`:5173`) y el de producción (`:4173`) son direcciones distintas y cada una tiene su propia biblioteca local; usa siempre la misma dirección para continuar tus lecturas. Borrar los datos del sitio también borra los libros y el progreso. La búsqueda de PDF requiere texto seleccionable: un PDF escaneado necesitaría reconocimiento de texto. El diseño se comprobó en tamaños de 320, 390, 768, 1024 y 1440 píxeles mediante Chrome automatizado; todavía no sustituye una prueba en modelos físicos de teléfono. Una mejora futura sería sincronizar o exportar la biblioteca entre dispositivos.
