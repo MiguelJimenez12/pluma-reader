@@ -4,15 +4,9 @@
 
 ## Vista previa
 
-| Biblioteca | Lector EPUB |
-| --- | --- |
-| ![Biblioteca con dos libros de demostración](docs/screenshots/library.png) | ![Lector EPUB en tema sepia](docs/screenshots/epub.png) |
-
-| Lector PDF | Biblioteca móvil |
-| --- | --- |
-| ![Visor PDF con resultados de búsqueda](docs/screenshots/pdf.png) | ![Biblioteca en un teléfono](docs/screenshots/mobile.png) |
-
-![Lectura EPUB en una pantalla móvil](docs/screenshots/mobile-reader.png)
+| Biblioteca | Lector EPUB | Lector PDF |
+| --- | --- | --- |
+| ![Biblioteca con dos libros de demostración](docs/screenshots/library.png) | ![Lector EPUB en tema sepia](docs/screenshots/epub.png) | ![Visor PDF con resultados de búsqueda](docs/screenshots/pdf.png) |
 
 Las capturas usan libros de demostración; no se incluyen archivos personales ni libros en el repositorio.
 
@@ -24,7 +18,7 @@ Las capturas usan libros de demostración; no se incluyen archivos personales ni
 - Buscar texto dentro de cada libro y guardar marcadores.
 - Ajustar fuente, tamaño, interlineado, márgenes y ancho del texto en EPUB.
 - Elegir tema claro, sepia u oscuro; leer a pantalla completa.
-- Eliminar libros y sus datos locales. Interfaz adaptable a computadora, tableta y móvil, con controles de lectura accesibles en pantallas pequeñas.
+- Eliminar libros y sus datos locales. Interfaz optimizada para computadoras.
 
 ## Tecnologías
 
@@ -73,4 +67,4 @@ docs/screenshots/   Capturas reales de la aplicación
 
 ## Datos y límites actuales
 
-La biblioteca pertenece al navegador y dispositivo donde se importó. El servidor de desarrollo (`:5173`) y el de producción (`:4173`) son direcciones distintas y cada una tiene su propia biblioteca local; usa siempre la misma dirección para continuar tus lecturas. Borrar los datos del sitio también borra los libros y el progreso. La búsqueda de PDF requiere texto seleccionable: un PDF escaneado necesitaría reconocimiento de texto. El diseño se comprobó en tamaños de 320, 390, 768, 1024 y 1440 píxeles mediante Chrome automatizado; todavía no sustituye una prueba en modelos físicos de teléfono. Una mejora futura sería sincronizar o exportar la biblioteca entre dispositivos.
+La biblioteca pertenece al navegador y equipo donde se importó. El servidor de desarrollo (`:5173`) y el de producción (`:4173`) son direcciones distintas y cada una tiene su propia biblioteca local; usa siempre la misma dirección para continuar tus lecturas. Borrar los datos del sitio también borra los libros y el progreso. La búsqueda de PDF requiere texto seleccionable: un PDF escaneado necesitaría reconocimiento de texto. El diseño de escritorio se comprobó a 1024 y 1440 píxeles mediante Chrome automatizado. Una mejora futura sería sincronizar o exportar la biblioteca entre equipos.
