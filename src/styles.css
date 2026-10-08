@@ -4,3 +4,38 @@
 @media(max-width:850px){.sidebar{width:204px;min-width:204px}.main-column{width:calc(100% - 204px)}.library-content{padding:48px 30px 60px}.continue-action{display:none}.book-grid{grid-template-columns:repeat(auto-fill,minmax(145px,1fr));gap:25px 18px}.reader-panel{position:absolute;left:0;top:0;bottom:0;box-shadow:8px 0 24px #14231a23}.reader-heading{max-width:33vw}.epub-stage{width:calc(100% - 82px)}.page-edge.previous{left:1px}.page-edge.next{right:1px}}
 @media(max-width:640px){.sidebar{position:fixed;z-index:55;transform:translateX(-100%);transition:transform .2s;box-shadow:15px 0 40px #182a1d26;width:258px}.sidebar.open{transform:translateX(0)}.mobile-scrim{display:block;position:fixed;inset:0;background:#13241bbb;border:0;z-index:54}.mobile-close{display:grid;margin-left:auto}.main-column{width:100%}.mobile-header{height:56px;display:flex;align-items:center;justify-content:space-between;padding:0 16px;border-bottom:1px solid #e8e9e2;background:#fffefa;color:#234738}.mobile-header span{font-family:'Newsreader',Georgia,serif;font-size:26px;font-weight:600;letter-spacing:-1px}.library-content{padding:33px 20px 60px}.library-topline{margin-bottom:34px}.library-topline h1{font-size:42px}.desktop-add{display:none}.section-title h2{font-size:25px}.section-title>span{display:none}.continue-section{margin-bottom:42px}.continue-card{padding:18px;min-height:155px;gap:16px}.continue-cover{width:75px;height:107px}.continue-cover .fallback-cover strong{font-size:13px}.continue-copy>strong{font-size:24px}.continue-progress{margin-top:15px}.book-grid{grid-template-columns:repeat(2,minmax(0,1fr));gap:28px 17px}.book-info strong{font-size:19px}.books-section .section-title{display:block}.library-search{margin-top:16px;width:100%}.reader-header{height:58px;padding:0 10px;gap:3px}.reader-back{min-width:auto}.reader-back span{display:none}.reader-heading{max-width:35vw}.reader-heading strong{font-size:15px}.reader-heading span{display:none}.reader-toolbar{gap:0}.reader-toolbar .icon-button{width:33px}.fullscreen-button{display:none}.reader-panel{width:min(85vw,330px);min-width:0}.settings-popover{right:-20px;width:min(300px,calc(100vw - 20px))}.epub-stage{width:calc(100% - 54px)}.page-edge{width:27px}.reader-footer{height:44px;padding:0 13px;gap:10px}.reader-location{min-width:70px;max-width:26%;font-size:10px}.footer-bookmark{padding-left:10px}.footer-bookmark span{display:none}.pdf-scroll{padding:18px 12px 28px}.pdf-controls{gap:5px;font-size:10px}.pdf-controls .icon-button{width:29px}.control-divider{margin:0 3px}}
 @media(max-width:390px){.reader-heading{max-width:27vw}.reader-toolbar .icon-button{width:30px}.continue-progress small{display:none}}
+
+/* Keep EPUB margins outside the paginated document so every column has the same width. */
+.reader-shell { height: 100dvh; min-height: 0; }
+.epub-stage {
+  width: min(calc(var(--reading-width) - 2 * var(--reading-margin)), calc(100% - 120px));
+  min-width: 0;
+}
+@media (max-width: 850px) {
+  .epub-stage { width: min(calc(var(--reading-width) - 2 * var(--reading-margin)), calc(100% - 82px)); }
+}
+@media (max-width: 640px) {
+  .mobile-header .icon-button { width: 44px; height: 44px; }
+  .reader-header { padding-inline: 8px; gap: 4px; }
+  .reader-back { min-width: 40px; width: 40px; height: 40px; justify-content: center; }
+  .reader-heading { flex: 1; max-width: none; }
+  .reader-toolbar { flex: none; }
+  .reader-toolbar .icon-button { width: 40px; height: 40px; }
+  .settings-popover {
+    position: fixed;
+    inset: 62px 8px auto;
+    width: auto;
+    max-height: calc(100dvh - 70px);
+  }
+  .epub-stage {
+    width: min(calc(var(--reading-width) - 2 * var(--reading-margin)), calc(100% - 52px - clamp(16px, var(--reading-margin), 64px)));
+  }
+  .page-edge { width: 40px; height: 64px; }
+  .page-edge.previous { left: 0; }
+  .page-edge.next { right: 0; }
+  .pdf-controls { height: auto; min-height: 53px; padding: 6px 3px; flex-wrap: wrap; }
+}
+@media (max-width: 360px) {
+  .reader-heading strong { font-size: 13px; }
+  .reader-toolbar .icon-button { width: 38px; height: 38px; }
+}

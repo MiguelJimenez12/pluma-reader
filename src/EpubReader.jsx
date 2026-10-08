@@ -14,6 +14,9 @@ const EpubReader = forwardRef(function EpubReader({ book, settings, panel, close
   const locationRef = useRef(null)
   const locationsReady = useRef(false)
   const currentChapterRef = useRef('')
+  const settingsRef = useRef(settings)
+  settingsRef.current = settings
+  const previousSettingsRef = useRef(settings)
   const [toc, setToc] = useState([])
   const [loading, setLoading] = useState(true)
   const [query, setQuery] = useState('')
@@ -51,6 +54,7 @@ const EpubReader = forwardRef(function EpubReader({ book, settings, panel, close
         setToc(flattenToc(navigation.toc))
         rendition = epub.renderTo(stageRef.current, { width: '100%', height: '100%', spread: 'none', flow: 'paginated', allowScriptedContent: false })
         renditionRef.current = rendition
+        rendition.hooks.content.register(contents => applyContentStyles(contents, settingsRef.current))
         rendition.on('relocated', location => {
           if (cancelled || !location?.start?.cfi) return
           locationRef.current = location
@@ -63,7 +67,7 @@ const EpubReader = forwardRef(function EpubReader({ book, settings, panel, close
           updateBook(bookId, { position: location.start.cfi, progress }).catch(() => onError('No se pudo guardar la posición de lectura.'))
         })
         rendition.on('displayError', () => onError('No se pudo mostrar este capítulo.'))
-        applyTheme(rendition, settings)
+        applyTheme(rendition, settingsRef.current)
         await rendition.display(book.position || undefined)
         if (cancelled) return
         setLoading(false)
@@ -87,6 +91,7 @@ const EpubReader = forwardRef(function EpubReader({ book, settings, panel, close
       locationsReady.current = false
       renditionRef.current = null
       bookRef.current = null
+      try { rendition?.destroy() } catch {}
       if (epub) {
         if (generationPromise) generationPromise.finally(() => { try { epub.destroy() } catch {} })
         else { try { epub.destroy() } catch {} }
@@ -95,7 +100,35 @@ const EpubReader = forwardRef(function EpubReader({ book, settings, panel, close
     // This effect intentionally initializes the file only when changing books.
   }, [bookId])
 
-  useEffect(() => { if (renditionRef.current) applyTheme(renditionRef.current, settings) }, [settings])
+  useEffect(() => {
+    const rendition = renditionRef.current
+    const previous = previousSettingsRef.current
+    previousSettingsRef.current = settings
+    if (!rendition) return
+    applyTheme(rendition, settings)
+    if (previous.fontSize === settings.fontSize && previous.fontFamily === settings.fontFamily && previous.lineHeight === settings.lineHeight) return
+    const timer = setTimeout(() => {
+      if (renditionRef.current !== rendition) return
+      const cfi = locationRef.current?.start?.cfi
+      if (!cfi) return
+      rendition.clear()
+      rendition.display(cfi).catch(() => onError('No se pudo actualizar la página.'))
+    }, 120)
+    return () => clearTimeout(timer)
+  }, [settings])
+  useEffect(() => {
+    const stage = stageRef.current
+    if (!stage) return
+    const observer = new ResizeObserver(entries => {
+      const rendition = renditionRef.current
+      const cfi = locationRef.current?.start?.cfi
+      if (!rendition || !cfi) return
+      const { width, height } = entries[0].contentRect
+      if (width > 0 && height > 0) rendition.resize(Math.round(width), Math.round(height), cfi)
+    })
+    observer.observe(stage)
+    return () => observer.disconnect()
+  }, [])
   useEffect(() => { setActiveBookmark(!!book.bookmarks?.some(b => b.position === locationRef.current?.start?.cfi)) }, [book.bookmarks, book.position])
   useEffect(() => {
     const handle = e => {
@@ -139,12 +172,20 @@ const EpubReader = forwardRef(function EpubReader({ book, settings, panel, close
 
 function applyTheme(rendition, settings) {
   const colors = settings.theme === 'dark' ? { bg: '#1b2423', text: '#e8e6df' } : settings.theme === 'sepia' ? { bg: '#f2ead9', text: '#3b352b' } : { bg: '#fffefa', text: '#222b29' }
-  rendition.themes.override('background-color', colors.bg)
-  rendition.themes.override('color', colors.text)
+  rendition.themes.override('background-color', colors.bg, true)
+  rendition.themes.override('color', colors.text, true)
   rendition.themes.fontSize(`${settings.fontSize}px`)
-  rendition.themes.override('font-family', settings.fontFamily === 'sans' ? 'Arial, Helvetica, sans-serif' : 'Georgia, Times New Roman, serif')
-  rendition.themes.override('line-height', String(settings.lineHeight))
-  rendition.themes.override('padding', `0 ${Math.min(settings.margins, 96)}px`)
+  rendition.themes.override('line-height', String(settings.lineHeight), true)
+  rendition.getContents().forEach(contents => applyContentStyles(contents, settings))
+}
+
+function applyContentStyles(contents, settings) {
+  const font = settings.fontFamily === 'sans' ? 'Arial, Helvetica, sans-serif' : 'Georgia, Times New Roman, serif'
+  contents.addStylesheetCss(`
+    body, body * { font-family: ${font} !important; }
+    body { font-size: ${settings.fontSize}px !important; line-height: ${settings.lineHeight} !important; }
+    body p, body li, body blockquote { font-size: inherit !important; line-height: ${settings.lineHeight} !important; }
+  `, 'pluma-reader-settings')
 }
 
 export default EpubReader
