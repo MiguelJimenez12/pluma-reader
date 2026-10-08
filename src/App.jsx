@@ -1,11 +1,12 @@
 import { lazy, Suspense, useCallback, useEffect, useRef, useState } from 'react'
-import { BookOpen, Bookmark, Check, ChevronDown, ChevronLeft, ChevronRight, Clock3, FileText, FolderOpen, LayoutGrid, Library, Maximize, Minimize, MoreHorizontal, Plus, Search, Settings2, Trash2, UploadCloud, X } from 'lucide-react'
+import { BookOpen, Bookmark, Check, ChevronLeft, ChevronRight, Clock3, FolderOpen, LayoutGrid, Maximize, Minimize, MoreHorizontal, Plus, Search, Settings2, Trash2, UploadCloud, X } from 'lucide-react'
 import { deleteBook, getBook, getBooks, getSettings, saveBook, saveSettings } from './db'
 import { importFiles } from './bookImport'
 
 const EpubReader = lazy(() => import('./EpubReader'))
 const PdfReader = lazy(() => import('./PdfReader'))
 
+// Estos valores sirven de base cuando aún no hay preferencias guardadas.
 const defaultSettings = { theme: 'light', fontSize: 18, fontFamily: 'serif', lineHeight: 1.65, margins: 48, width: 760 }
 
 function formatProgress(value) { return `${Math.round((value || 0) * 100)}%` }
@@ -13,6 +14,7 @@ function bookCount(n) { return `${n} ${n === 1 ? 'libro' : 'libros'}` }
 
 function Cover({ book, className = '' }) {
   const [url, setUrl] = useState(null)
+  // La portada se guarda como Blob; la URL temporal se libera al cambiar de libro.
   useEffect(() => {
     if (!book.cover) return
     const objectUrl = URL.createObjectURL(book.cover)
@@ -40,24 +42,21 @@ function BookCard({ book, onOpen, onDelete }) {
   </article>
 }
 
-function Sidebar({ view, setView, count, onImport, mobileOpen, setMobileOpen }) {
-  const navigate = (next) => { setView(next); setMobileOpen(false) }
-  return <>
-    {mobileOpen && <button className="mobile-scrim" aria-label="Cerrar menú" onClick={() => setMobileOpen(false)} />}
-    <aside className={`sidebar ${mobileOpen ? 'open' : ''}`}>
-      <div className="brand"><div className="brand-symbol"><BookOpen size={21} strokeWidth={1.8} /></div><span>pluma<span className="brand-dot">.</span></span><button className="mobile-close icon-button" aria-label="Cerrar menú" onClick={() => setMobileOpen(false)}><X size={20} /></button></div>
-      <nav aria-label="Biblioteca"><p className="nav-caption">EXPLORAR</p><button className={view === 'all' ? 'active' : ''} onClick={() => navigate('all')}><LayoutGrid size={18} /> Biblioteca <span>{count}</span></button><button className={view === 'reading' ? 'active' : ''} onClick={() => navigate('reading')}><BookOpen size={18} /> Leyendo</button><button className={view === 'finished' ? 'active' : ''} onClick={() => navigate('finished')}><Check size={18} /> Terminados</button></nav>
+function Sidebar({ view, setView, count, onImport }) {
+  return <aside className="sidebar">
+      <div className="brand"><div className="brand-symbol"><BookOpen size={21} strokeWidth={1.8} /></div><span>pluma<span className="brand-dot">.</span></span></div>
+      <nav aria-label="Biblioteca"><p className="nav-caption">EXPLORAR</p><button className={view === 'all' ? 'active' : ''} onClick={() => setView('all')}><LayoutGrid size={18} /> Biblioteca <span>{count}</span></button><button className={view === 'reading' ? 'active' : ''} onClick={() => setView('reading')}><BookOpen size={18} /> Leyendo</button><button className={view === 'finished' ? 'active' : ''} onClick={() => setView('finished')}><Check size={18} /> Terminados</button></nav>
       <div className="sidebar-bottom"><button className="sidebar-import" onClick={onImport}><Plus size={18} /> Añadir libros</button><p>Tus libros se guardan en este dispositivo.</p></div>
     </aside>
-  </>
 }
 
 function LibraryView({ books, onOpen, onImport, onDelete, busy, view, setView, error, clearError }) {
   const [query, setQuery] = useState('')
+  // Primero aplica la sección elegida y después la búsqueda por título o autor.
   const filtered = books.filter(b => (view === 'reading' ? b.progress > 0 && b.progress < 1 : view === 'finished' ? b.progress >= 1 : true)).filter(b => `${b.title} ${b.author}`.toLowerCase().includes(query.toLowerCase()))
   const recent = books.find(b => b.lastOpenedAt && b.progress < 1)
   return <main className="library-content">
-    <div className="library-topline"><div><span className="eyebrow">TU ESPACIO DE LECTURA</span><h1>{view === 'reading' ? 'Leyendo' : view === 'finished' ? 'Terminados' : 'Tu biblioteca'}</h1><p>{books.length ? `${bookCount(filtered.length)} en esta sección` : 'Un buen libro siempre encuentra su lugar.'}</p></div><button className="primary-button desktop-add" onClick={onImport} disabled={busy}><Plus size={18} /> Añadir libro</button></div>
+    <div className="library-topline"><div><span className="eyebrow">TU ESPACIO DE LECTURA</span><h1>{view === 'reading' ? 'Leyendo' : view === 'finished' ? 'Terminados' : 'Tu biblioteca'}</h1><p>{books.length ? `${bookCount(filtered.length)} en esta sección` : 'Un buen libro siempre encuentra su lugar.'}</p></div><button className="primary-button" onClick={onImport} disabled={busy}><Plus size={18} /> Añadir libro</button></div>
     {error && <div className="notice" role="alert"><span>{error}</span><button aria-label="Cerrar aviso" onClick={clearError}><X size={16}/></button></div>}
     {recent && view === 'all' && !query && <section className="continue-section"><div className="section-title"><h2>Continuar leyendo</h2><span>Retoma donde lo dejaste</span></div><button className="continue-card" onClick={() => onOpen(recent.id)}><Cover book={recent} className="continue-cover" /><span className="continue-copy"><span className="continue-kicker"><Clock3 size={15} /> EN CURSO</span><strong>{recent.title}</strong><span>{recent.author}</span><span className="continue-progress"><span className="progress-track"><span style={{width: formatProgress(recent.progress)}}/></span><small>{formatProgress(recent.progress)} completado</small></span></span><span className="continue-action">Seguir leyendo <ChevronRight size={18}/></span></button></section>}
     <section className="books-section"><div className="section-title"><h2>{view === 'all' ? 'Todos los libros' : view === 'reading' ? 'En lectura' : 'Lecturas terminadas'}</h2>{books.length > 0 && <div className="library-search"><Search size={17}/><input value={query} onChange={e => setQuery(e.target.value)} placeholder="Buscar en tu biblioteca" aria-label="Buscar en tu biblioteca" /></div>}</div>
@@ -75,7 +74,6 @@ export default function App() {
   const [error, setError] = useState('')
   const [ready, setReady] = useState(false)
   const [dragging, setDragging] = useState(false)
-  const [mobileOpen, setMobileOpen] = useState(false)
   const [deleteTarget, setDeleteTarget] = useState(null)
   const inputRef = useRef(null)
   const dragDepth = useRef(0)
@@ -84,8 +82,10 @@ export default function App() {
   const pendingSettingsSave = useRef(Promise.resolve())
   const activeBook = books.find(b => b.id === activeId)
 
+  // La biblioteca y las preferencias se recuperan del almacenamiento del navegador al iniciar.
   useEffect(() => { Promise.all([getBooks(), getSettings()]).then(([savedBooks, savedSettings]) => { setBooks(savedBooks); if (savedSettings) { currentSettings.current = {...defaultSettings, ...savedSettings}; setSettings(currentSettings.current) } setReady(true) }).catch(() => { setError('No se pudo abrir el almacenamiento local. Comprueba los permisos del navegador.'); setReady(true) }) }, [])
   const refresh = useCallback(async () => setBooks(await getBooks()), [])
+  // Serializa los cambios de cada libro para que progreso y marcadores no se sobrescriban.
   const updateBook = useCallback((id, patch) => {
     const previous = pendingBookUpdates.current.get(id) || Promise.resolve()
     const next = previous.catch(() => {}).then(async () => {
@@ -99,6 +99,7 @@ export default function App() {
     next.finally(() => { if (pendingBookUpdates.current.get(id) === next) pendingBookUpdates.current.delete(id) }).catch(() => {})
     return next
   }, [])
+  // Guarda los ajustes en el mismo orden en que el usuario los modifica.
   const updateSettings = useCallback(patch => {
     const next = { ...currentSettings.current, ...patch }
     currentSettings.current = next
@@ -110,6 +111,7 @@ export default function App() {
     setActiveId(id)
     await updateBook(id, { lastOpenedAt: Date.now() }).catch(() => setError('No se pudo guardar la fecha de lectura.'))
   }, [updateBook])
+  // Procesa varios archivos, informa de errores o duplicados y restablece el selector.
   const handleFiles = useCallback(async files => {
     if (!files?.length) return
     setBusy(true); setError('')
@@ -125,10 +127,12 @@ export default function App() {
   }, [refresh])
   const confirmDelete = async () => {
     if (!deleteTarget) return
+    // Espera las escrituras pendientes antes de borrar también el archivo asociado.
     try { await pendingBookUpdates.current.get(deleteTarget.id)?.catch(() => {}); await deleteBook(deleteTarget.id); await refresh(); if (activeId === deleteTarget.id) setActiveId(null) }
     catch { setError('No se pudo eliminar el libro.') }
     setDeleteTarget(null)
   }
+  // Los eventos viven en la ventana para aceptar archivos sobre toda la biblioteca.
   useEffect(() => {
     const enter = e => { if (e.dataTransfer?.types?.includes('Files')) { e.preventDefault(); dragDepth.current++; setDragging(true) } }
     const leave = e => { e.preventDefault(); dragDepth.current = Math.max(0, dragDepth.current - 1); if (!dragDepth.current) setDragging(false) }
@@ -139,7 +143,7 @@ export default function App() {
   }, [handleFiles])
   return <div className={`app-shell ${activeBook ? 'is-reading' : ''}`}>
     <input ref={inputRef} type="file" accept=".epub,.pdf,application/epub+zip,application/pdf" multiple hidden onChange={e => handleFiles(e.target.files)} />
-    {!ready ? <div className="app-loading"><BookOpen size={32}/><span>Abriendo tu biblioteca…</span></div> : activeBook ? <Reader book={activeBook} settings={settings} updateSettings={updateSettings} updateBook={updateBook} onBack={() => { setActiveId(null); refresh() }} /> : <><Sidebar view={view} setView={setView} count={books.length} onImport={() => inputRef.current?.click()} mobileOpen={mobileOpen} setMobileOpen={setMobileOpen}/><div className="main-column"><header className="mobile-header"><button className="icon-button" aria-label="Abrir menú" onClick={() => setMobileOpen(true)}><Library size={22}/></button><span>pluma.</span><button className="icon-button" aria-label="Añadir libro" onClick={() => inputRef.current?.click()}><Plus size={22}/></button></header><LibraryView books={books} onOpen={openBook} onImport={() => inputRef.current?.click()} onDelete={setDeleteTarget} busy={busy} view={view} setView={setView} error={error} clearError={() => setError('')}/></div></>}
+    {!ready ? <div className="app-loading"><BookOpen size={32}/><span>Abriendo tu biblioteca…</span></div> : activeBook ? <Reader book={activeBook} settings={settings} updateSettings={updateSettings} updateBook={updateBook} onBack={() => { setActiveId(null); refresh() }} /> : <><Sidebar view={view} setView={setView} count={books.length} onImport={() => inputRef.current?.click()}/><div className="main-column"><LibraryView books={books} onOpen={openBook} onImport={() => inputRef.current?.click()} onDelete={setDeleteTarget} busy={busy} view={view} setView={setView} error={error} clearError={() => setError('')}/></div></>}
     {dragging && <div className="drop-overlay"><div><UploadCloud size={42}/><strong>Suelta tus libros aquí</strong><span>Archivos EPUB o PDF</span></div></div>}
     {deleteTarget && <div className="modal-backdrop" onMouseDown={e => { if (e.target === e.currentTarget) setDeleteTarget(null) }}><div className="confirm-dialog" role="alertdialog" aria-modal="true" aria-labelledby="delete-title"><div className="dialog-icon"><Trash2 size={22}/></div><h2 id="delete-title">¿Eliminar este libro?</h2><p>Se eliminarán «{deleteTarget.title}», sus marcadores y su progreso de lectura de este dispositivo.</p><div className="dialog-actions"><button className="secondary-button" onClick={() => setDeleteTarget(null)}>Cancelar</button><button className="danger-button" onClick={confirmDelete}>Eliminar libro</button></div></div></div>}
   </div>
@@ -153,6 +157,7 @@ function Reader({ book, settings, updateSettings, updateBook, onBack }) {
   const [readerError, setReaderError] = useState('')
   const shellRef = useRef(null)
   const readerRef = useRef(null)
+  // El estado visual sigue los cambios de pantalla completa iniciados por el navegador.
   useEffect(() => { const f = () => setFullscreen(!!document.fullscreenElement); document.addEventListener('fullscreenchange', f); return () => document.removeEventListener('fullscreenchange', f) }, [])
   const toggleFullscreen = async () => { try { if (document.fullscreenElement) await document.exitFullscreen(); else await shellRef.current?.requestFullscreen() } catch { setReaderError('El navegador no permitió entrar en pantalla completa.') } }
   const toggleBookmark = () => readerRef.current?.toggleBookmark()
