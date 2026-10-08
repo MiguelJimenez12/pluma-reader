@@ -1,4 +1,4 @@
-import { getBooks, saveBook, saveFile } from './db'
+import { getBooks, saveImportedBook } from './db'
 
 function baseName(name) { return name.replace(/\.(epub|pdf)$/i, '').replace(/[_-]+/g, ' ').trim() }
 
@@ -52,8 +52,7 @@ export async function importFiles(fileList, onEach) {
       const id = crypto.randomUUID()
       const now = Date.now()
       const book = { id, ...details, format, fileName: file.name, fileSize: file.size, addedAt: now, updatedAt: now, lastOpenedAt: null, progress: 0, position: null, bookmarks: [] }
-      await saveFile(id, file)
-      await saveBook(book)
+      await saveImportedBook(book, file)
       existing.push(book)
       results.push({ file: file.name, book })
       onEach?.(book)

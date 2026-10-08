@@ -79,25 +79,36 @@ export default function App() {
   const [deleteTarget, setDeleteTarget] = useState(null)
   const inputRef = useRef(null)
   const dragDepth = useRef(0)
+  const pendingBookUpdates = useRef(new Map())
+  const currentSettings = useRef(defaultSettings)
+  const pendingSettingsSave = useRef(Promise.resolve())
   const activeBook = books.find(b => b.id === activeId)
 
-  useEffect(() => { Promise.all([getBooks(), getSettings()]).then(([savedBooks, savedSettings]) => { setBooks(savedBooks); if (savedSettings) setSettings({...defaultSettings, ...savedSettings}); setReady(true) }).catch(() => { setError('No se pudo abrir el almacenamiento local. Comprueba los permisos del navegador.'); setReady(true) }) }, [])
+  useEffect(() => { Promise.all([getBooks(), getSettings()]).then(([savedBooks, savedSettings]) => { setBooks(savedBooks); if (savedSettings) { currentSettings.current = {...defaultSettings, ...savedSettings}; setSettings(currentSettings.current) } setReady(true) }).catch(() => { setError('No se pudo abrir el almacenamiento local. Comprueba los permisos del navegador.'); setReady(true) }) }, [])
   const refresh = useCallback(async () => setBooks(await getBooks()), [])
-  const updateBook = useCallback(async (id, patch) => {
-    const current = await getBook(id)
-    if (!current) return
-    const updated = { ...current, ...patch, updatedAt: Date.now() }
-    await saveBook(updated)
-    setBooks(prev => prev.map(b => b.id === id ? updated : b))
+  const updateBook = useCallback((id, patch) => {
+    const previous = pendingBookUpdates.current.get(id) || Promise.resolve()
+    const next = previous.catch(() => {}).then(async () => {
+      const current = await getBook(id)
+      if (!current) return
+      const updated = { ...current, ...patch, updatedAt: Date.now() }
+      await saveBook(updated)
+      setBooks(prev => prev.map(b => b.id === id ? updated : b))
+    })
+    pendingBookUpdates.current.set(id, next)
+    next.finally(() => { if (pendingBookUpdates.current.get(id) === next) pendingBookUpdates.current.delete(id) }).catch(() => {})
+    return next
   }, [])
-  const updateSettings = useCallback(async patch => {
-    const next = { ...settings, ...patch }
+  const updateSettings = useCallback(patch => {
+    const next = { ...currentSettings.current, ...patch }
+    currentSettings.current = next
     setSettings(next)
-    try { await saveSettings(next) } catch { setError('No se pudieron guardar los ajustes de lectura.') }
-  }, [settings])
+    pendingSettingsSave.current = pendingSettingsSave.current.catch(() => {}).then(() => saveSettings(next))
+    return pendingSettingsSave.current.catch(() => setError('No se pudieron guardar los ajustes de lectura.'))
+  }, [])
   const openBook = useCallback(async id => {
     setActiveId(id)
-    await updateBook(id, { lastOpenedAt: Date.now() })
+    await updateBook(id, { lastOpenedAt: Date.now() }).catch(() => setError('No se pudo guardar la fecha de lectura.'))
   }, [updateBook])
   const handleFiles = useCallback(async files => {
     if (!files?.length) return
@@ -114,7 +125,7 @@ export default function App() {
   }, [refresh])
   const confirmDelete = async () => {
     if (!deleteTarget) return
-    try { await deleteBook(deleteTarget.id); await refresh(); if (activeId === deleteTarget.id) setActiveId(null) }
+    try { await pendingBookUpdates.current.get(deleteTarget.id)?.catch(() => {}); await deleteBook(deleteTarget.id); await refresh(); if (activeId === deleteTarget.id) setActiveId(null) }
     catch { setError('No se pudo eliminar el libro.') }
     setDeleteTarget(null)
   }

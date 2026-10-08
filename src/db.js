@@ -16,7 +16,12 @@ export async function getBooks() {
 export async function getBook(id) { return (await dbPromise).get('books', id) }
 export async function getFile(id) { return (await dbPromise).get('files', id) }
 export async function saveBook(book) { await (await dbPromise).put('books', book) }
-export async function saveFile(id, file) { await (await dbPromise).put('files', file, id) }
+export async function saveImportedBook(book, file) {
+  const db = await dbPromise
+  const tx = db.transaction(['books', 'files'], 'readwrite')
+  await Promise.all([tx.objectStore('books').put(book), tx.objectStore('files').put(file, book.id)])
+  await tx.done
+}
 export async function deleteBook(id) {
   const db = await dbPromise
   const tx = db.transaction(['books', 'files'], 'readwrite')
