@@ -4,10 +4,12 @@ import { Bookmark, BookOpen, ChevronLeft, ChevronRight, Loader2, Search, X } fro
 import { getFile } from './db'
 
 function flattenToc(items, depth = 0) {
+  // Convierte capítulos anidados en una lista que conserva su nivel visual.
   return (items || []).flatMap(item => [{ id: item.id || item.href, label: item.label?.trim() || 'Capítulo', href: item.href, depth }, ...flattenToc(item.subitems, depth + 1)])
 }
 
 const EpubReader = forwardRef(function EpubReader({ book, settings, panel, closePanel, updateBook, onStatus, onError }, ref) {
+  // Las referencias conservan la posición CFI y la instancia de epub.js entre renderizados.
   const stageRef = useRef(null)
   const bookRef = useRef(null)
   const renditionRef = useRef(null)
@@ -23,17 +25,16 @@ const EpubReader = forwardRef(function EpubReader({ book, settings, panel, close
   const [results, setResults] = useState([])
   const [searching, setSearching] = useState(false)
   const [searched, setSearched] = useState(false)
-  const [activeBookmark, setActiveBookmark] = useState(false)
   const bookId = book.id
 
   useImperativeHandle(ref, () => ({
     toggleBookmark: async () => {
+      // El CFI identifica una posición estable aunque cambie el tamaño de la página.
       const cfi = locationRef.current?.start?.cfi
       if (!cfi) return
       const exists = book.bookmarks?.some(b => b.position === cfi)
       const bookmarks = exists ? book.bookmarks.filter(b => b.position !== cfi) : [...(book.bookmarks || []), { id: crypto.randomUUID(), position: cfi, label: currentChapterRef.current || 'Posición guardada', addedAt: Date.now() }]
       await updateBook(bookId, { bookmarks })
-      setActiveBookmark(!exists)
     },
   }), [book.bookmarks, bookId, updateBook])
 
@@ -44,6 +45,7 @@ const EpubReader = forwardRef(function EpubReader({ book, settings, panel, close
     let generationPromise
     async function setup() {
       try {
+        // Abre el archivo guardado y restaura la última posición conocida.
         const file = await getFile(bookId)
         if (!file) throw new Error('No se encontró el archivo guardado.')
         epub = ePub(await file.arrayBuffer())
@@ -54,6 +56,7 @@ const EpubReader = forwardRef(function EpubReader({ book, settings, panel, close
         setToc(flattenToc(navigation.toc))
         rendition = epub.renderTo(stageRef.current, { width: '100%', height: '100%', spread: 'none', flow: 'paginated', allowScriptedContent: false })
         renditionRef.current = rendition
+        // Cada capítulo se dibuja en un iframe nuevo y necesita recibir las preferencias.
         rendition.hooks.content.register(contents => applyContentStyles(contents, settingsRef.current))
         rendition.on('relocated', location => {
           if (cancelled || !location?.start?.cfi) return
@@ -61,6 +64,7 @@ const EpubReader = forwardRef(function EpubReader({ book, settings, panel, close
           const item = navigation.get(location.start.href)
           const label = item?.label?.trim() || `Capítulo ${Math.max(1, (location.start.index || 0) + 1)}`
           currentChapterRef.current = label
+          // El porcentaje se calcula con las ubicaciones del libro cuando ya están listas.
           let progress = book.progress || 0
           if (locationsReady.current) progress = location.atEnd ? 1 : Math.min(1, Math.max(0, epub.locations.percentageFromCfi(location.start.cfi) || 0))
           onStatus({ progress, label, current: null, total: null })
@@ -71,6 +75,7 @@ const EpubReader = forwardRef(function EpubReader({ book, settings, panel, close
         await rendition.display(book.position || undefined)
         if (cancelled) return
         setLoading(false)
+        // Generar ubicaciones puede tardar; la lectura permanece disponible mientras tanto.
         generationPromise = epub.locations.generate(1400).then(() => {
           if (cancelled) return
           locationsReady.current = true
@@ -87,6 +92,7 @@ const EpubReader = forwardRef(function EpubReader({ book, settings, panel, close
     }
     setup()
     return () => {
+      // Se liberan el iframe y el libro al cerrar el lector o cambiar de título.
       cancelled = true
       locationsReady.current = false
       renditionRef.current = null
@@ -97,7 +103,7 @@ const EpubReader = forwardRef(function EpubReader({ book, settings, panel, close
         else { try { epub.destroy() } catch {} }
       }
     }
-    // This effect intentionally initializes the file only when changing books.
+    // El archivo se inicializa solo al cambiar de libro; los ajustes se aplican aparte.
   }, [bookId])
 
   useEffect(() => {
@@ -107,6 +113,7 @@ const EpubReader = forwardRef(function EpubReader({ book, settings, panel, close
     if (!rendition) return
     applyTheme(rendition, settings)
     if (previous.fontSize === settings.fontSize && previous.fontFamily === settings.fontFamily && previous.lineHeight === settings.lineHeight) return
+    // Los cambios tipográficos alteran la paginación; se vuelve a mostrar el CFI actual.
     const timer = setTimeout(() => {
       if (renditionRef.current !== rendition) return
       const cfi = locationRef.current?.start?.cfi
@@ -119,6 +126,7 @@ const EpubReader = forwardRef(function EpubReader({ book, settings, panel, close
   useEffect(() => {
     const stage = stageRef.current
     if (!stage) return
+    // Cuando cambia el ancho disponible, epub.js recalcula columnas sin perder la posición.
     const observer = new ResizeObserver(entries => {
       const rendition = renditionRef.current
       const cfi = locationRef.current?.start?.cfi
@@ -129,7 +137,6 @@ const EpubReader = forwardRef(function EpubReader({ book, settings, panel, close
     observer.observe(stage)
     return () => observer.disconnect()
   }, [])
-  useEffect(() => { setActiveBookmark(!!book.bookmarks?.some(b => b.position === locationRef.current?.start?.cfi)) }, [book.bookmarks, book.position])
   useEffect(() => {
     const handle = e => {
       if (e.target.closest('input, textarea, select')) return
@@ -148,6 +155,7 @@ const EpubReader = forwardRef(function EpubReader({ book, settings, panel, close
     try {
       const epub = bookRef.current
       const found = []
+      // La búsqueda recorre los capítulos y libera cada sección tras leerla.
       for (const section of epub.spine.spineItems) {
         if (found.length >= 150) break
         await section.load(epub.load.bind(epub))
@@ -171,6 +179,7 @@ const EpubReader = forwardRef(function EpubReader({ book, settings, panel, close
 })
 
 function applyTheme(rendition, settings) {
+  // El tema afecta al documento del EPUB, que está aislado dentro de un iframe.
   const colors = settings.theme === 'dark' ? { bg: '#1b2423', text: '#e8e6df' } : settings.theme === 'sepia' ? { bg: '#f2ead9', text: '#3b352b' } : { bg: '#fffefa', text: '#222b29' }
   rendition.themes.override('background-color', colors.bg, true)
   rendition.themes.override('color', colors.text, true)
@@ -180,6 +189,7 @@ function applyTheme(rendition, settings) {
 }
 
 function applyContentStyles(contents, settings) {
+  // Una hoja identificada reemplaza las reglas anteriores sin acumular estilos.
   const font = settings.fontFamily === 'sans' ? 'Arial, Helvetica, sans-serif' : 'Georgia, Times New Roman, serif'
   contents.addStylesheetCss(`
     body, body * { font-family: ${font} !important; }

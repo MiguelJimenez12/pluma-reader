@@ -1,9 +1,10 @@
 import { forwardRef, useEffect, useImperativeHandle, useRef, useState } from 'react'
 import * as pdfjs from 'pdfjs-dist'
 import workerSrc from 'pdfjs-dist/build/pdf.worker.min.mjs?url'
-import { Bookmark, ChevronLeft, ChevronRight, FileText, Loader2, Minus, Plus, Search, X } from 'lucide-react'
+import { Bookmark, ChevronLeft, ChevronRight, Loader2, Minus, Plus, Search, X } from 'lucide-react'
 import { getFile } from './db'
 
+// PDF.js procesa los documentos en un worker para no bloquear la interfaz.
 pdfjs.GlobalWorkerOptions.workerSrc = workerSrc
 
 const PdfReader = forwardRef(function PdfReader({ book, settings, panel, closePanel, updateBook, onStatus, onError }, ref) {
@@ -11,7 +12,6 @@ const PdfReader = forwardRef(function PdfReader({ book, settings, panel, closePa
   const [page, setPage] = useState(Math.max(1, Number(book.position) || 1))
   const [zoom, setZoom] = useState(1)
   const [loading, setLoading] = useState(true)
-  const [rendering, setRendering] = useState(false)
   const [query, setQuery] = useState('')
   const [results, setResults] = useState([])
   const [searching, setSearching] = useState(false)
@@ -25,6 +25,7 @@ const PdfReader = forwardRef(function PdfReader({ book, settings, panel, closePa
 
   useImperativeHandle(ref, () => ({
     toggleBookmark: async () => {
+      // En PDF, el número de página es la posición estable de cada marcador.
       const current = pageRef.current
       const exists = book.bookmarks?.some(b => b.position === current)
       const bookmarks = exists ? book.bookmarks.filter(b => b.position !== current) : [...(book.bookmarks || []), { id: crypto.randomUUID(), position: current, label: `Página ${current}`, addedAt: Date.now() }]
@@ -37,6 +38,7 @@ const PdfReader = forwardRef(function PdfReader({ book, settings, panel, closePa
     let task
     async function setup() {
       try {
+        // Recupera el archivo local; al desmontar se cancela la tarea de carga.
         const file = await getFile(bookId)
         if (!file) throw new Error('No se encontró el archivo guardado.')
         task = pdfjs.getDocument({ data: new Uint8Array(await file.arrayBuffer()) })
@@ -52,6 +54,7 @@ const PdfReader = forwardRef(function PdfReader({ book, settings, panel, closePa
 
   useEffect(() => {
     if (!stageRef.current) return
+    // El ancho del panel determina la escala necesaria para ajustar la página.
     const observer = new ResizeObserver(entries => setStageWidth(entries[0].contentRect.width))
     observer.observe(stageRef.current)
     return () => observer.disconnect()
@@ -62,13 +65,13 @@ const PdfReader = forwardRef(function PdfReader({ book, settings, panel, closePa
     let cancelled = false
     let renderTask
     async function render() {
-      setRendering(true)
       try {
         const pdfPage = await pdf.getPage(page)
         if (cancelled) return
         const natural = pdfPage.getViewport({ scale: 1 })
         const cssWidth = Math.min(Math.max(280, stageWidth - 64), 900) * zoom
         const viewport = pdfPage.getViewport({ scale: cssWidth / natural.width })
+        // La resolución del canvas sigue la densidad de pantalla sin cambiar su tamaño visual.
         const ratio = Math.min(window.devicePixelRatio || 1, 2)
         const canvas = canvasRef.current
         canvas.width = Math.floor(viewport.width * ratio)
@@ -79,7 +82,6 @@ const PdfReader = forwardRef(function PdfReader({ book, settings, panel, closePa
         renderTask = pdfPage.render({ canvasContext: context, viewport, transform: ratio === 1 ? null : [ratio, 0, 0, ratio, 0, 0] })
         await renderTask.promise
       } catch (error) { if (!cancelled && error?.name !== 'RenderingCancelledException') { console.error(error); onError('No se pudo mostrar esta página.') } }
-      finally { if (!cancelled) setRendering(false) }
     }
     render()
     return () => { cancelled = true; renderTask?.cancel() }
@@ -87,6 +89,7 @@ const PdfReader = forwardRef(function PdfReader({ book, settings, panel, closePa
 
   useEffect(() => {
     if (!pdf) return
+    // Cada cambio de página actualiza la barra y la posición persistida.
     const progress = page / pdf.numPages
     onStatus({ progress, label: `Página ${page} de ${pdf.numPages}`, current: page, total: pdf.numPages })
     updateBook(bookId, { position: page, progress }).catch(() => onError('No se pudo guardar la página actual.'))
@@ -110,6 +113,7 @@ const PdfReader = forwardRef(function PdfReader({ book, settings, panel, closePa
     setSearching(true); setSearched(false); setResults([])
     try {
       const found = []
+      // Solo se busca texto extraíble; los PDF escaneados requieren OCR externo.
       for (let number = 1; number <= pdf.numPages; number++) {
         const pdfPage = await pdf.getPage(number)
         const content = await pdfPage.getTextContent()
