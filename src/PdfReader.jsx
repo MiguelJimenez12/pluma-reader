@@ -34,21 +34,20 @@ const PdfReader = forwardRef(function PdfReader({ book, settings, panel, closePa
 
   useEffect(() => {
     let cancelled = false
-    let doc
     let task
     async function setup() {
       try {
         const file = await getFile(bookId)
         if (!file) throw new Error('No se encontró el archivo guardado.')
         task = pdfjs.getDocument({ data: new Uint8Array(await file.arrayBuffer()) })
-        doc = await task.promise
+        const doc = await task.promise
         if (cancelled) return
         setPdf(doc)
         setLoading(false)
       } catch (error) { if (!cancelled) { console.error(error); onError(error.message || 'No se pudo abrir este PDF.'); setLoading(false) } }
     }
     setup()
-    return () => { cancelled = true; if (task && !doc) task.destroy(); if (doc) doc.destroy() }
+    return () => { cancelled = true; task?.destroy().catch(() => {}) }
   }, [bookId])
 
   useEffect(() => {

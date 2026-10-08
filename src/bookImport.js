@@ -25,8 +25,8 @@ async function pdfDetails(file) {
   const { default: workerSrc } = await import('pdfjs-dist/build/pdf.worker.min.mjs?url')
   pdfjs.GlobalWorkerOptions.workerSrc = workerSrc
   const task = pdfjs.getDocument({ data: new Uint8Array(await file.arrayBuffer()) })
-  const pdf = await task.promise
   try {
+    const pdf = await task.promise
     const meta = await pdf.getMetadata().catch(() => null)
     const page = await pdf.getPage(1)
     const viewport = page.getViewport({ scale: 0.6 })
@@ -36,7 +36,7 @@ async function pdfDetails(file) {
     await page.render({ canvasContext: canvas.getContext('2d'), viewport }).promise
     const cover = await new Promise(resolve => canvas.toBlob(resolve, 'image/jpeg', 0.8))
     return { title: meta?.info?.Title || baseName(file.name), author: meta?.info?.Author || 'Autor desconocido', cover, pages: pdf.numPages }
-  } finally { await pdf.destroy() }
+  } finally { await task.destroy() }
 }
 
 export async function importFiles(fileList, onEach) {
